@@ -39,7 +39,7 @@ type JWTMiddleware struct {
 
 	// Callback function that should perform the authentication of the user based on userId and
 	// password. Must return true on success, false on failure. Required.
-	Authenticator func(userId string, password string) bool
+	Authenticator func(userId string, password string) (bool, bool, string)
 
 	// Callback function that should perform the authorization of the authenticated user. Called
 	// only after an authentication success. Must return true on success, false on failure.
@@ -141,8 +141,13 @@ func (mw *JWTMiddleware) LoginHandler(writer rest.ResponseWriter, request *rest.
 		return
 	}
 
-	if !mw.Authenticator(loginVals.Email, loginVals.Password) {
-		mw.unauthorized(writer)
+	isset, password, id := mw.Authenticator(loginVals.Email, loginVals.Password)
+
+	if !isset { // если пользователя не существует
+		mw.notUser(writer)
+		return
+	} else if !password { // если пароль неверный
+		mw.notPassword(writer)
 		return
 	}
 
@@ -154,7 +159,7 @@ func (mw *JWTMiddleware) LoginHandler(writer rest.ResponseWriter, request *rest.
 		}
 	}
 
-	token.Claims["id"] = loginVals.Email
+	token.Claims["id"] = id
 	token.Claims["exp"] = time.Now().Add(mw.Timeout).Unix()
 	if mw.MaxRefresh != 0 {
 		token.Claims["orig_iat"] = time.Now().Unix()
@@ -230,4 +235,14 @@ func (mw *JWTMiddleware) RefreshHandler(writer rest.ResponseWriter, request *res
 func (mw *JWTMiddleware) unauthorized(writer rest.ResponseWriter) {
 	writer.Header().Set("WWW-Authenticate", "JWT realm="+mw.Realm)
 	rest.Error(writer, "Not Authorized", http.StatusUnauthorized)
+}
+
+func (mw *JWTMiddleware) notUser(writer rest.ResponseWriter) {
+	writer.Header().Set("WWW-Authenticate", "JWT realm="+mw.Realm)
+	rest.Error(writer, "User does not exist", http.StatusUnauthorized)
+}
+
+func (mw *JWTMiddleware) notPassword(writer rest.ResponseWriter) {
+	writer.Header().Set("WWW-Authenticate", "JWT realm="+mw.Realm)
+	rest.Error(writer, "Invalid password", http.StatusUnauthorized)
 }

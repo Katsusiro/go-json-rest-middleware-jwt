@@ -230,20 +230,24 @@ func (mw *JWTMiddleware) RefreshHandler(writer rest.ResponseWriter, request *res
 		return
 	}
 
+	writer.Header().Add("Access-Control-Allow-Origin", "*")
 	writer.WriteJson(resultToken{Token: tokenString})
 }
 
 func (mw *JWTMiddleware) unauthorized(writer rest.ResponseWriter) {
+	writer.Header().Add("Access-Control-Allow-Origin", "*")
 	writer.Header().Set("WWW-Authenticate", "JWT realm="+mw.Realm)
 	rest.Error(writer, "Пользователь не авторизован", http.StatusUnauthorized)
 }
 
 func (mw *JWTMiddleware) notUser(writer rest.ResponseWriter) {
+	writer.Header().Add("Access-Control-Allow-Origin", "*")
 	writer.Header().Set("WWW-Authenticate", "JWT realm="+mw.Realm)
 	rest.Error(writer, "Пользователя не существует", http.StatusUnauthorized)
 }
 
 func (mw *JWTMiddleware) notPassword(writer rest.ResponseWriter) {
+	writer.Header().Add("Access-Control-Allow-Origin", "*")
 	writer.Header().Set("WWW-Authenticate", "JWT realm="+mw.Realm)
 	rest.Error(writer, "Неверный пароль", http.StatusUnauthorized)
 }

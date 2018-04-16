@@ -160,6 +160,7 @@ func (mw *JWTMiddleware) LoginHandler(writer rest.ResponseWriter, request *rest.
 	}
 
 	token.Claims["id"] = id
+	token.Claims["password"] = password
 	token.Claims["exp"] = time.Now().Add(mw.Timeout).Unix()
 	if mw.MaxRefresh != 0 {
 		token.Claims["orig_iat"] = time.Now().Unix()
@@ -221,6 +222,7 @@ func (mw *JWTMiddleware) RefreshHandler(writer rest.ResponseWriter, request *res
 	}
 
 	newToken.Claims["id"] = token.Claims["id"]
+	newToken.Claims["password"] = token.Claims["password"]
 	newToken.Claims["exp"] = time.Now().Add(mw.Timeout).Unix()
 	newToken.Claims["orig_iat"] = origIat
 	tokenString, err := newToken.SignedString(mw.Key)

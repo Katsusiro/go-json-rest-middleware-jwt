@@ -2,10 +2,9 @@
 package jwt
 
 import (
+	"errors"
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/dgrijalva/jwt-go"
-
-	"errors"
 	"log"
 	"net/http"
 	"strings"
@@ -120,7 +119,7 @@ func ExtractClaims(request *rest.Request) map[string]interface{} {
 	return jwtClaims
 }
 
-type resultToken struct {
+type ResultToken struct {
 	Token string `json:"token"`
 }
 
@@ -154,13 +153,12 @@ func (mw *JWTMiddleware) LoginHandler(writer rest.ResponseWriter, request *rest.
 	token := jwt.New(jwt.GetSigningMethod(mw.SigningAlgorithm))
 
 	if mw.PayloadFunc != nil {
-		for key, value := range mw.PayloadFunc(loginVals.Email) {
+		for key, value := range mw.PayloadFunc(id) {
 			token.Claims[key] = value
 		}
 	}
 
 	token.Claims["id"] = id
-	token.Claims["password"] = password
 	token.Claims["exp"] = time.Now().Add(mw.Timeout).Unix()
 	if mw.MaxRefresh != 0 {
 		token.Claims["orig_iat"] = time.Now().Unix()
@@ -173,7 +171,27 @@ func (mw *JWTMiddleware) LoginHandler(writer rest.ResponseWriter, request *rest.
 	}
 
 	writer.Header().Add("Access-Control-Allow-Origin", "*")
-	writer.WriteJson(resultToken{Token: tokenString})
+	writer.WriteJson(ResultToken{Token: tokenString})
+}
+
+func (mw *JWTMiddleware) GenerateNewToken(id string) string {
+
+	token := jwt.New(jwt.GetSigningMethod(mw.SigningAlgorithm))
+
+	if mw.PayloadFunc != nil {
+		for key, value := range mw.PayloadFunc(id) {
+			token.Claims[key] = value
+		}
+	}
+
+	token.Claims["id"] = id
+	token.Claims["exp"] = time.Now().Add(mw.Timeout).Unix()
+	if mw.MaxRefresh != 0 {
+		token.Claims["orig_iat"] = time.Now().Unix()
+	}
+	tokenString, _ := token.SignedString(mw.Key)
+
+	return tokenString
 }
 
 func (mw *JWTMiddleware) parseToken(request *rest.Request) (*jwt.Token, error) {
@@ -222,7 +240,6 @@ func (mw *JWTMiddleware) RefreshHandler(writer rest.ResponseWriter, request *res
 	}
 
 	newToken.Claims["id"] = token.Claims["id"]
-	newToken.Claims["password"] = token.Claims["password"]
 	newToken.Claims["exp"] = time.Now().Add(mw.Timeout).Unix()
 	newToken.Claims["orig_iat"] = origIat
 	tokenString, err := newToken.SignedString(mw.Key)
@@ -233,7 +250,7 @@ func (mw *JWTMiddleware) RefreshHandler(writer rest.ResponseWriter, request *res
 	}
 
 	writer.Header().Add("Access-Control-Allow-Origin", "*")
-	writer.WriteJson(resultToken{Token: tokenString})
+	writer.WriteJson(ResultToken{Token: tokenString})
 }
 
 func (mw *JWTMiddleware) unauthorized(writer rest.ResponseWriter) {
